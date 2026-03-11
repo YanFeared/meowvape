@@ -56,7 +56,7 @@ end
 local function wipeFolder(path)
 	if isfolder(path) then
 		for _, v in listfiles(path) do
-			if isfile(v) and not v:find('/profiles') then
+			if isfile(v) and not v:find('profiles') then
 				delfile(v)
 			end
 		end
