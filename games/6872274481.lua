@@ -2675,7 +2675,7 @@ run(function() --> by max
 							end
 						else
 							if (tick() - lastSwang) < Killaura.Options['Continue Swinging']:GetRandomValue() and not Swing.Enabled and AnimDelay < tick() and not LegitAura.Enabled then
-								AnimDelay = tick() + math.max(ChargeTime.Value, 0.11)
+								AnimDelay = tick() + math.max(ChargeTime.Value, 0.3)
 								pcall(function(...)
 									bedwars.SwordController:playSwordEffect(meta, false)
 								end)
@@ -2720,7 +2720,7 @@ run(function() --> by max
 					end
 
 					--#attacked > 0 and #attacked * 0.02 or
-					task.wait(1 / UpdateRate.Value)
+					task.wait(0 / UpdateRate.Value)
 				until not Killaura.Enabled
 			else
 				store.KillauraTarget = nil
@@ -2781,8 +2781,8 @@ run(function() --> by max
 	SwingRange = Killaura:CreateSlider({
 		Name = 'Swing range',
 		Min = 1,
-		Max = 22,
-		Default = 22,
+		Max = 45,
+		Default = 40,
 		Function = function(val)
 			if RangeVisualiser then
 				RangeVisualiser.Size = Vector3.new(val * 0.7, 0.01, val  * 0.7)
@@ -2795,7 +2795,7 @@ run(function() --> by max
 	AttackRange = Killaura:CreateSlider({
 		Name = 'Attack range',
 		Min = 1,
-		Max = 22,
+		Max = 25,
 		Default = 22,
 		Suffix = function(val)
 			return val == 1 and 'stud' or 'studs'
@@ -3743,7 +3743,7 @@ run(function()
 		table.insert(blockMonitorConnections, cleanupConn)
 	end
 	
-	PotatoMode = vape.Categories.BoostFPS:CreateModule({
+	PotatoMode = vape.Categories.Utility:CreateModule({
 		Name = 'PotatoMode',
 		Function = function(callback)
 			if callback then
