@@ -1973,7 +1973,249 @@ run(function()
         end
     })
 end)
-	
+															
+run(function()
+    local EffectsOnly
+    local moduleConnectionList = {}
+    local processedObjects = {} 
+    local originalProperties = {}
+    
+    local titanPatterns = {"titan", "golem", "bhaa", "spiritgolem", "voidgolem"}
+    
+    local function matchesTitanPattern(name)
+        local lowerName = name:lower()
+        for _, pattern in ipairs(titanPatterns) do
+            if lowerName:find(pattern, 1, true) then 
+                return true
+            end
+        end
+        return false
+    end
+    
+    local Aerov4TitanRemover = vape.Categories.BoostFPS:CreateModule({
+        Name = 'Titan Remover',
+        Function = function(callback)
+            if callback then
+                for _, conn in ipairs(moduleConnectionList) do
+                    if conn and type(conn) == "userdata" and conn.Connected then
+                        conn:Disconnect()
+                    end
+                end
+                moduleConnectionList = {}
+                processedObjects = {}
+                originalProperties = {}
+
+                local function processModel(model)
+                    if processedObjects[model] then return end
+                    processedObjects[model] = true
+                    
+                    local effectsOnly = EffectsOnly and EffectsOnly.Enabled
+                    
+                    local descendants = model:GetDescendants()
+                    
+                    for _, part in ipairs(descendants) do
+                        if part.Name == "Nametag" and part.Parent and part.Parent.Name == "Head" then
+                            continue
+                        end
+                        
+                        if part:IsA("BasePart") and not effectsOnly then
+                            if not originalProperties[part] then
+                                originalProperties[part] = {
+                                    Transparency = part.Transparency,
+                                    CanCollide = part.CanCollide,
+                                    CastShadow = part.CastShadow,
+                                    CanQuery = part.CanQuery
+                                }
+                                
+                                part.Transparency = 1
+                                part.CanCollide = false
+                                part.CastShadow = false
+                                part.CanQuery = false
+                            end
+                            
+                        elseif (part:IsA("Decal") or part:IsA("Texture")) and not effectsOnly then
+                            if not originalProperties[part] then
+                                originalProperties[part] = {Transparency = part.Transparency}
+                                part.Transparency = 1
+                            end
+                            
+                        elseif part:IsA("ParticleEmitter") then
+                            if not originalProperties[part] then
+                                originalProperties[part] = {Enabled = part.Enabled}
+                                part.Enabled = false
+                            end
+                            
+                        elseif part:IsA("Sound") then
+                            if not originalProperties[part] then
+                                originalProperties[part] = {Volume = part.Volume}
+                                part.Volume = 0
+                            end
+                            
+                        elseif part:IsA("SurfaceGui") or part:IsA("BillboardGui") then
+                            if not originalProperties[part] then
+                                originalProperties[part] = {Enabled = part.Enabled}
+                                part.Enabled = false
+                            end
+                        end
+                    end
+                end
+
+                local function hideTitanAssets()
+                    for _, model in ipairs(workspace:GetChildren()) do
+                        if model:IsA("Model") and matchesTitanPattern(model.Name) then
+                            processModel(model)
+                        end
+                    end
+                    
+                    local function hideBossBars()
+                        for _, screenGui in ipairs(coreGui:GetDescendants()) do
+                            if screenGui:IsA("ScreenGui") and (screenGui.Name:find("BossBar") or screenGui.Name:find("Boss")) then
+                                if not originalProperties[screenGui] then
+                                    originalProperties[screenGui] = {Enabled = screenGui.Enabled}
+                                    screenGui.Enabled = false
+                                end
+                            end
+                        end
+                        
+                        local player = playersService.LocalPlayer
+                        if player and player:FindFirstChild("PlayerGui") then
+                            for _, screenGui in ipairs(player.PlayerGui:GetDescendants()) do
+                                if screenGui:IsA("ScreenGui") and (screenGui.Name:find("BossBar") or screenGui.Name:find("Boss")) then
+                                    if not originalProperties[screenGui] then
+                                        originalProperties[screenGui] = {Enabled = screenGui.Enabled}
+                                        screenGui.Enabled = false
+                                    end
+                                end
+                            end
+                        end
+                    end
+                    
+                    pcall(hideBossBars)
+                end
+
+                hideTitanAssets()
+                
+                local processingDescendant = false
+                local descendantConnection = workspace.DescendantAdded:Connect(function(descendant)
+                    if processingDescendant then return end
+                    processingDescendant = true
+
+                    if descendant:IsA("Model") and matchesTitanPattern(descendant.Name) then
+                        task.delay(0.1, function()
+                            processingDescendant = false
+                            if descendant.Parent then
+                                processModel(descendant)
+                            end
+                        end)
+                        return
+                    elseif descendant:IsA("ParticleEmitter") then
+                        local parent = descendant.Parent
+                        if parent and matchesTitanPattern(parent.Name) then
+                            if not originalProperties[descendant] then
+                                originalProperties[descendant] = {Enabled = descendant.Enabled}
+                                descendant.Enabled = false
+                            end
+                        end
+                    elseif descendant:IsA("Sound") then
+                        if matchesTitanPattern(descendant.Name) then
+                            if not originalProperties[descendant] then
+                                originalProperties[descendant] = {Volume = descendant.Volume}
+                                descendant.Volume = 0
+                            end
+                        end
+                    end
+
+                    processingDescendant = false
+                end)
+                table.insert(moduleConnectionList, descendantConnection)
+                
+                task.spawn(function()
+                    local collectionService = collectionService
+                    local tagsToMonitor = {"Bhaa", "spiritGolem", "GolemBoss", "Titan"}
+                    
+                    for _, tag in ipairs(tagsToMonitor) do
+                        local success, tagged = pcall(function()
+                            return collectionService:GetTagged(tag)
+                        end)
+                        
+                        if success then
+                            for _, obj in ipairs(tagged) do
+                                if obj:IsA("Model") and not processedObjects[obj] then
+                                    processModel(obj)
+                                end
+                            end
+                            
+                            local tagAddedConnection = collectionService:GetInstanceAddedSignal(tag):Connect(function(obj)
+                                if obj:IsA("Model") and not processedObjects[obj] then
+                                    task.delay(0.1, function()
+                                        if obj.Parent then
+                                            processModel(obj)
+                                        end
+                                    end)
+                                end
+                            end)
+                            table.insert(moduleConnectionList, tagAddedConnection)
+                        end
+                    end
+                end)
+                
+            else
+                for _, conn in ipairs(moduleConnectionList) do
+                    if conn and type(conn) == "userdata" and conn.Connected then
+                        pcall(function()
+                            conn:Disconnect()
+                        end)
+                    end
+                end
+                moduleConnectionList = {}
+                
+                for object, properties in pairs(originalProperties) do
+                    if object and object.Parent then
+                        pcall(function()
+                            for prop, value in pairs(properties) do
+                                if object[prop] ~= nil then
+                                    object[prop] = value
+                                end
+                            end
+                        end)
+                    end
+                end
+                
+                processedObjects = {}
+                originalProperties = {}
+            end
+        end,
+        Tooltip = 'Removes Titan/Bhaa models and effects for FPS boost'
+    })
+
+    EffectsOnly = Aerov4TitanRemover:CreateToggle({
+        Name = 'Effects Only',
+        Default = false,
+        Tooltip = 'Only hides particles keeps titan models visible',
+        Function = function(callback)
+            if Aerov4TitanRemover.Enabled then
+                for object, properties in pairs(originalProperties) do
+                    if object and object.Parent then
+                        pcall(function()
+                            for prop, value in pairs(properties) do
+                                if object[prop] ~= nil then
+                                    object[prop] = value
+                                end
+                            end
+                        end)
+                    end
+                end
+                processedObjects = {}
+                originalProperties = {}
+                
+                Aerov4TitanRemover:Toggle()
+                task.wait()
+                Aerov4TitanRemover:Toggle()
+            end
+        end
+    })
+end)
+																	
 local Fly
 local LongJump
 run(function()
