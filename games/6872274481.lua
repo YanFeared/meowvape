@@ -1992,7 +1992,7 @@ run(function()
         return false
     end
     
-    local Aerov4TitanRemover = vape.Categories.BoostFPS:CreateModule({
+    local Aerov4TitanRemover = vape.Categories.Utility:CreateModule({
         Name = 'Titan Remover',
         Function = function(callback)
             if callback then
